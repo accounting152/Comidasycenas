@@ -6,7 +6,9 @@
     facil: { label: 'Fácil', emoji: '🥗' },
     medio: { label: 'Medio', emoji: '🍝' },
     dificil: { label: 'Difícil', emoji: '🥘' },
+    pendiente: { label: 'Sin clasificar', emoji: '🎬' },
   };
+  const UNNAMED = 'Receta sin nombre';
   const IG_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.3" cy="6.7" r="1.3" fill="currentColor"/></svg>';
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -216,9 +218,11 @@
   /* ---------- Lista ---------- */
   function renderList() {
     show('list');
-    const counts = { all: recipes.length, facil: 0, medio: 0, dificil: 0 };
+    const counts = { all: recipes.length, facil: 0, medio: 0, dificil: 0, pendiente: 0 };
     recipes.forEach((r) => { counts[r.difficulty] = (counts[r.difficulty] || 0) + 1; });
     $$('[data-count]').forEach((el) => { el.textContent = counts[el.dataset.count] || 0; });
+    $('#chip-pendiente').hidden = !counts.pendiente;
+    if (filter === 'pendiente' && !counts.pendiente) filter = 'all';
     $$('#filters .chip').forEach((c) => c.classList.toggle('active', c.dataset.filter === filter));
 
     const q = norm(query);
@@ -278,6 +282,41 @@
         : '<div class="line blank"></div>').join('')
       : '<div class="empty-text">Sin texto. Pulsa Editar para pegar los ingredientes.</div>';
     $('#view-detail').dataset.id = r.id;
+
+    const pending = r.difficulty === 'pendiente';
+    $('#d-classify').hidden = !pending;
+    if (pending) {
+      const left = recipes.filter((x) => x.difficulty === 'pendiente').length;
+      $('#c-left').textContent = left === 1 ? 'Queda 1 por clasificar' : `Quedan ${left} por clasificar`;
+      $('#c-title').value = r.title === UNNAMED ? '' : r.title;
+    }
+  }
+
+  // Siguiente receta sin clasificar (en el orden de la lista), sin contar la actual.
+  function nextPending(currentId) {
+    const list = recipes.filter((x) => x.difficulty === 'pendiente')
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const i = list.findIndex((x) => x.id === currentId);
+    const rest = list.slice(i + 1).concat(list.slice(0, Math.max(i, 0)));
+    return rest.find((x) => x.id !== currentId) || null;
+  }
+
+  async function classify(diff) {
+    const id = $('#view-detail').dataset.id;
+    const r = recipes.find((x) => x.id === id);
+    if (!r) return;
+    const name = $('#c-title').value.trim();
+    if (name) r.title = name;
+    if (diff) { r.difficulty = diff; r.updatedAt = Date.now(); }
+    if (diff || name) await saveRecipes();
+    const next = nextPending(id);
+    if (next) {
+      if (diff) toast(`Guardada como ${DIFF[diff].label}`);
+      location.replace('#/r/' + next.id);
+    } else {
+      toast(diff ? '¡Todas clasificadas!' : 'No hay más sin clasificar');
+      if (diff) { filter = 'all'; location.replace('#/'); }
+    }
   }
 
   /* ---------- Formulario ---------- */
@@ -353,7 +392,7 @@
     const data = {
       title,
       url: video ? video.url : '',
-      difficulty: ($$('input[name=diff]').find((i) => i.checked) || {}).value || 'facil',
+      difficulty: ($$('input[name=diff]').find((i) => i.checked) || {}).value || 'pendiente',
       time: $('#f-time').value.trim(),
       text,
       photo: formPhoto,
@@ -392,6 +431,7 @@
   function renderSettings() {
     show('settings');
     $('#s-msg').textContent = '';
+    $('#s-links-msg').textContent = '';
     const n = recipes.length;
     $('#s-stats').textContent = `${n} receta${n === 1 ? '' : 's'} guardada${n === 1 ? '' : 's'}`;
   }
@@ -412,35 +452,96 @@
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
 
+  /* Lista de enlaces (uno por línea, o mezclados con texto) -> recetas sin clasificar */
+  function importLinks(text) {
+    const found = (String(text).match(/https?:\/\/[^\s"'<>,]+/g) || [])
+      .map(parseVideo).filter((v) => v && v.type === 'instagram');
+    const have = new Set(recipes.map((r) => r.url));
+    let added = 0, dup = 0;
+    const now = Date.now();
+    found.forEach((v, i) => {
+      if (have.has(v.url)) { dup++; return; }
+      have.add(v.url);
+      // createdAt descendente para que salgan en el mismo orden que la lista pegada
+      recipes.push({ id: uid(), title: UNNAMED, url: v.url, difficulty: 'pendiente', time: '', text: '',
+        photo: null, favorite: false, createdAt: now - i, updatedAt: now });
+      added++;
+    });
+    return { added, dup, total: found.length };
+  }
+
+  async function onImportLinks() {
+    const msg = $('#s-links-msg');
+    const res = importLinks($('#s-links').value);
+    if (!res.total) {
+      msg.className = 'field-msg error';
+      msg.textContent = 'No he encontrado enlaces de Instagram en el texto.';
+      return;
+    }
+    await saveRecipes();
+    $('#s-links').value = '';
+    renderSettings();
+    msg.className = 'field-msg ok';
+    msg.textContent = `Añadidos ${res.added}` + (res.dup ? ` (${res.dup} ya estaban)` : '') + '. Están en «Sin clasificar».';
+  }
+
   async function importData(file) {
     const msg = $('#s-msg');
+    const raw = await file.text();
+    let json = null;
+    try { json = JSON.parse(raw); } catch (e) { /* puede ser una lista de enlaces en texto */ }
+    if (!json || (Array.isArray(json) && json.every((x) => typeof x === 'string'))) {
+      const res = importLinks(Array.isArray(json) ? json.join('\n') : raw);
+      if (res.total) {
+        await saveRecipes();
+        renderSettings();
+        msg.className = 'field-msg ok';
+        msg.textContent = `Añadidos ${res.added} reels` + (res.dup ? ` (${res.dup} ya estaban)` : '') + '. Están en «Sin clasificar».';
+        return;
+      }
+    }
     try {
-      const json = JSON.parse(await file.text());
+      if (!json) throw new Error('formato');
       const list = Array.isArray(json) ? json : json.recipes;
       if (!Array.isArray(list)) throw new Error('formato');
       const byId = new Map(recipes.map((r) => [r.id, r]));
-      let added = 0, updated = 0;
-      list.forEach((r) => {
-        if (!r || !r.title) return;
+      const byUrl = new Map(recipes.filter((r) => r.url).map((r) => [r.url, r]));
+      let added = 0, updated = 0, skipped = 0;
+      const now = Date.now();
+      list.forEach((r, i) => {
+        if (!r || typeof r !== 'object') return;
+        // Admite copias de esta web y listas de Instagram (url, titulo, caption, dificultad).
+        const video = parseVideo(r.url || '');
+        const url = video ? video.url : String(r.url || '');
+        const title = String(r.title || r.titulo || '').trim() || (url ? UNNAMED : '');
+        if (!title) return;
+        const diff = norm(r.difficulty || r.dificultad || '').replace(/[^a-z]/g, '');
         const clean = {
           id: String(r.id || uid()),
-          title: String(r.title),
-          url: String(r.url || ''),
-          difficulty: DIFF[r.difficulty] ? r.difficulty : 'facil',
-          time: String(r.time || ''),
-          text: String(r.text || ''),
+          title,
+          url,
+          difficulty: DIFF[diff] ? diff : 'pendiente',
+          time: String(r.time || r.tiempo || ''),
+          text: String(r.text || r.caption || r.texto || ''),
           photo: typeof r.photo === 'string' && r.photo.startsWith('data:image/') ? r.photo : null,
           favorite: !!r.favorite,
-          createdAt: Number(r.createdAt) || Date.now(),
-          updatedAt: Number(r.updatedAt) || Date.now(),
+          createdAt: Number(r.createdAt) || now - i,
+          updatedAt: Number(r.updatedAt) || now,
         };
-        if (byId.has(clean.id)) { Object.assign(byId.get(clean.id), clean); updated++; }
-        else { recipes.push(clean); byId.set(clean.id, clean); added++; }
+        if (r.id && byId.has(clean.id)) { Object.assign(byId.get(clean.id), clean); updated++; return; }
+        if (!r.id && url && byUrl.has(url)) {
+          // Ya la tenías: no se toca tu clasificación, solo se rellena el texto si faltaba.
+          const old = byUrl.get(url);
+          if (!old.text && clean.text) { old.text = clean.text; updated++; } else skipped++;
+          if (old.title === UNNAMED && title !== UNNAMED) old.title = title;
+          return;
+        }
+        recipes.push(clean); byId.set(clean.id, clean); if (url) byUrl.set(url, clean); added++;
       });
       await saveRecipes();
       renderSettings();
       msg.className = 'field-msg ok';
-      msg.textContent = `Importadas: ${added} nuevas, ${updated} actualizadas.`;
+      msg.textContent = `Importadas: ${added} nuevas` + (updated ? `, ${updated} actualizadas` : '') + (skipped ? `, ${skipped} ya estaban` : '') + '.';
     } catch (e) {
       msg.className = 'field-msg error';
       msg.textContent = 'Ese archivo no es una copia válida.';
@@ -536,6 +637,11 @@
 
     // Ajustes
     $('#s-export').addEventListener('click', exportData);
+    $('#s-links-btn').addEventListener('click', onImportLinks);
+    $('#d-classify').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-classify]');
+      if (b) classify(b.dataset.classify || null);
+    });
     $('#s-import').addEventListener('change', (e) => {
       const f = e.target.files && e.target.files[0];
       e.target.value = '';
