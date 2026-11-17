@@ -47,6 +47,32 @@
     } catch (e) { return []; }
   }
 
+  // Enlaces de recetas borradas, para que la lista del repositorio no las vuelva a añadir.
+  async function kvGet(key) {
+    try {
+      const db = await openDB();
+      return await new Promise((resolve, reject) => {
+        const req = db.transaction('kv').objectStore('kv').get(key);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    } catch (e) {
+      try { return JSON.parse(localStorage.getItem(DB_NAME + ':' + key) || 'null'); } catch (e2) { return null; }
+    }
+  }
+  async function kvSet(key, value) {
+    try { localStorage.setItem(DB_NAME + ':' + key, JSON.stringify(value)); } catch (e) { /* sin espacio */ }
+    try {
+      const db = await openDB();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('kv', 'readwrite');
+        tx.objectStore('kv').put(value, key);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (e) { /* queda en localStorage */ }
+  }
+
   async function saveRecipes() {
     try {
       const db = await openDB();
@@ -485,6 +511,46 @@
     msg.textContent = `Añadidos ${res.added}` + (res.dup ? ` (${res.dup} ya estaban)` : '') + '. Están en «Sin clasificar».';
   }
 
+  /* Mezcla una lista de recetas (copia de esta web o lista de Instagram) con las guardadas. */
+  function mergeList(list, skipUrls) {
+    const byId = new Map(recipes.map((r) => [r.id, r]));
+    const byUrl = new Map(recipes.filter((r) => r.url).map((r) => [r.url, r]));
+    let added = 0, updated = 0, skipped = 0;
+    const now = Date.now();
+    list.forEach((r, i) => {
+      if (!r || typeof r !== 'object') return;
+      // Admite copias de esta web y listas de Instagram (url, titulo, caption, dificultad).
+      const video = parseVideo(r.url || '');
+      const url = video ? video.url : String(r.url || '');
+      const title = String(r.title || r.titulo || '').trim() || (url ? UNNAMED : '');
+      if (!title) return;
+      if (skipUrls && url && skipUrls.has(url)) return;
+      const diff = norm(r.difficulty || r.dificultad || '').replace(/[^a-z]/g, '');
+      const clean = {
+        id: String(r.id || uid()),
+        title,
+        url,
+        difficulty: DIFF[diff] ? diff : 'pendiente',
+        time: String(r.time || r.tiempo || ''),
+        text: String(r.text || r.caption || r.texto || ''),
+        photo: typeof r.photo === 'string' && r.photo.startsWith('data:image/') ? r.photo : null,
+        favorite: !!r.favorite,
+        createdAt: Number(r.createdAt) || now - i,
+        updatedAt: Number(r.updatedAt) || now,
+      };
+      if (r.id && byId.has(clean.id)) { Object.assign(byId.get(clean.id), clean); updated++; return; }
+      if (!r.id && url && byUrl.has(url)) {
+        // Ya la tenías: no se toca tu clasificación, solo se rellena el texto si faltaba.
+        const old = byUrl.get(url);
+        if (!old.text && clean.text) { old.text = clean.text; updated++; } else skipped++;
+        if (old.title === UNNAMED && title !== UNNAMED) old.title = title;
+        return;
+      }
+      recipes.push(clean); byId.set(clean.id, clean); if (url) byUrl.set(url, clean); added++;
+    });
+    return { added, updated, skipped };
+  }
+
   async function importData(file) {
     const msg = $('#s-msg');
     const raw = await file.text();
@@ -504,40 +570,7 @@
       if (!json) throw new Error('formato');
       const list = Array.isArray(json) ? json : json.recipes;
       if (!Array.isArray(list)) throw new Error('formato');
-      const byId = new Map(recipes.map((r) => [r.id, r]));
-      const byUrl = new Map(recipes.filter((r) => r.url).map((r) => [r.url, r]));
-      let added = 0, updated = 0, skipped = 0;
-      const now = Date.now();
-      list.forEach((r, i) => {
-        if (!r || typeof r !== 'object') return;
-        // Admite copias de esta web y listas de Instagram (url, titulo, caption, dificultad).
-        const video = parseVideo(r.url || '');
-        const url = video ? video.url : String(r.url || '');
-        const title = String(r.title || r.titulo || '').trim() || (url ? UNNAMED : '');
-        if (!title) return;
-        const diff = norm(r.difficulty || r.dificultad || '').replace(/[^a-z]/g, '');
-        const clean = {
-          id: String(r.id || uid()),
-          title,
-          url,
-          difficulty: DIFF[diff] ? diff : 'pendiente',
-          time: String(r.time || r.tiempo || ''),
-          text: String(r.text || r.caption || r.texto || ''),
-          photo: typeof r.photo === 'string' && r.photo.startsWith('data:image/') ? r.photo : null,
-          favorite: !!r.favorite,
-          createdAt: Number(r.createdAt) || now - i,
-          updatedAt: Number(r.updatedAt) || now,
-        };
-        if (r.id && byId.has(clean.id)) { Object.assign(byId.get(clean.id), clean); updated++; return; }
-        if (!r.id && url && byUrl.has(url)) {
-          // Ya la tenías: no se toca tu clasificación, solo se rellena el texto si faltaba.
-          const old = byUrl.get(url);
-          if (!old.text && clean.text) { old.text = clean.text; updated++; } else skipped++;
-          if (old.title === UNNAMED && title !== UNNAMED) old.title = title;
-          return;
-        }
-        recipes.push(clean); byId.set(clean.id, clean); if (url) byUrl.set(url, clean); added++;
-      });
+      const { added, updated, skipped } = mergeList(list);
       await saveRecipes();
       renderSettings();
       msg.className = 'field-msg ok';
@@ -593,6 +626,11 @@
       if (!r || !confirm(`¿Borrar «${r.title}»?`)) return;
       recipes = recipes.filter((x) => x.id !== id);
       await saveRecipes();
+      if (r.url) {
+        const deleted = new Set((await kvGet('deleted')) || []);
+        deleted.add(r.url);
+        await kvSet('deleted', Array.from(deleted));
+      }
       toast('Receta borrada');
       location.replace('#/');
     });
@@ -649,11 +687,30 @@
     });
   }
 
+  /* Recetas incluidas en la web (data/recetas.json): se añaden las nuevas como «Sin clasificar».
+     Tu clasificación, nombres y favoritas se guardan en el móvil y no se pisan. */
+  async function loadSeed() {
+    try {
+      const res = await fetch('data/recetas.json', { cache: 'no-cache' });
+      if (!res.ok) return;
+      const list = await res.json();
+      if (!Array.isArray(list)) return;
+      const deleted = new Set((await kvGet('deleted')) || []);
+      const { added, updated } = mergeList(list, deleted);
+      if (added || updated) {
+        await saveRecipes();
+        if (!$('#view-list').hidden) renderList();
+        if (added) toast(`${added} receta${added === 1 ? '' : 's'} nueva${added === 1 ? '' : 's'} para clasificar`);
+      }
+    } catch (e) { /* sin conexión: seguimos con lo guardado */ }
+  }
+
   async function init() {
     readPrefill();
     bind();
     recipes = await loadRecipes();
     route();
+    loadSeed();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     if ('serviceWorker' in navigator && location.protocol === 'https:') {
       navigator.serviceWorker.register('sw.js').catch(() => {});
