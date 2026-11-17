@@ -9,6 +9,26 @@
     pendiente: { label: 'Sin clasificar', emoji: '🎬' },
   };
   const UNNAMED = 'Receta sin nombre';
+  const MEAL = {
+    comida: { label: 'Comida', icon: '☀️' },
+    cena: { label: 'Cena', icon: '🌙' },
+    ambas: { label: 'Ambas', icon: '☀️🌙' },
+  };
+  // Falta clasificar si no tiene dificultad o no se sabe si es comida o cena.
+  const needsClassify = (r) => r.difficulty === 'pendiente' || !MEAL[r.meal];
+  const matchesMeal = (r, m) => m === 'all' || r.meal === m || (r.meal === 'ambas' && m !== 'ambas');
+  function normMeal(v) {
+    const m = norm(v || '').replace(/[^a-z]/g, '');
+    if (MEAL[m]) return m;
+    if (m === 'comidas' || m === 'almuerzo') return 'comida';
+    if (m === 'cenas') return 'cena';
+    if (m === 'ambos' || m === 'las2' || m === 'lasdos') return 'ambas';
+    return '';
+  }
+  function mealHTML(r) {
+    const m = MEAL[r.meal];
+    return m ? `<span class="meal">${m.icon} ${m.label}</span>` : '';
+  }
   const IG_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.3" cy="6.7" r="1.3" fill="currentColor"/></svg>';
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -214,6 +234,7 @@
   /* ---------- Estado ---------- */
   let recipes = [];
   let filter = 'all';
+  let meal = 'all';
   let query = '';
   let formPhoto = null;
   const doneLines = {}; // líneas tachadas en esta sesión, por receta
@@ -244,16 +265,25 @@
   /* ---------- Lista ---------- */
   function renderList() {
     show('list');
-    const counts = { all: recipes.length, facil: 0, medio: 0, dificil: 0, pendiente: 0 };
-    recipes.forEach((r) => { counts[r.difficulty] = (counts[r.difficulty] || 0) + 1; });
+    // Los recuentos de dificultad siguen al filtro de Comidas/Cenas.
+    const base = recipes.filter((r) => matchesMeal(r, meal));
+    const counts = { all: base.length, facil: 0, medio: 0, dificil: 0,
+      pendiente: recipes.filter(needsClassify).length };
+    base.forEach((r) => { if (r.difficulty !== 'pendiente') counts[r.difficulty] = (counts[r.difficulty] || 0) + 1; });
+    const mealCounts = { all: recipes.length, comida: 0, cena: 0 };
+    recipes.forEach((r) => { ['comida', 'cena'].forEach((m) => { if (matchesMeal(r, m)) mealCounts[m]++; }); });
     $$('[data-count]').forEach((el) => { el.textContent = counts[el.dataset.count] || 0; });
+    $$('[data-mcount]').forEach((el) => { el.textContent = mealCounts[el.dataset.mcount] || 0; });
+    $$('#meals .chip').forEach((c) => c.classList.toggle('active', c.dataset.meal === meal));
     $('#chip-pendiente').hidden = !counts.pendiente;
     if (filter === 'pendiente' && !counts.pendiente) filter = 'all';
     $$('#filters .chip').forEach((c) => c.classList.toggle('active', c.dataset.filter === filter));
 
     const q = norm(query);
     const items = recipes
-      .filter((r) => filter === 'all' || (filter === 'fav' ? r.favorite : r.difficulty === filter))
+      .filter((r) => filter === 'pendiente' || matchesMeal(r, meal))
+      .filter((r) => filter === 'all' || (filter === 'fav' ? r.favorite
+        : filter === 'pendiente' ? needsClassify(r) : r.difficulty === filter))
       .filter((r) => !q || norm(r.title + ' ' + r.text).includes(q))
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
@@ -268,7 +298,7 @@
         <div class="thumb"${bg}>${r.photo ? '' : d.emoji}${r.favorite ? '<span class="fav">★</span>' : ''}${ig}</div>
         <div class="card-body">
           <div class="card-title">${esc(r.title)}</div>
-          <div class="card-meta"><span class="dot ${r.difficulty}"></span>${d.label}${r.time ? ' · ' + esc(r.time) : ''}</div>
+          <div class="card-meta">${mealHTML(r)}<span class="diff"><span class="dot ${r.difficulty}"></span>${d.label}</span>${r.time ? '<span>' + esc(r.time) + '</span>' : ''}</div>
         </div>
       </article>`;
     }).join('');
@@ -282,6 +312,8 @@
     const d = DIFF[r.difficulty] || DIFF.facil;
     $('#d-title').textContent = r.title;
     $('#d-diff').innerHTML = `<span class="dot ${r.difficulty}"></span>${d.label}`;
+    $('#d-meal').hidden = !MEAL[r.meal];
+    $('#d-meal').textContent = MEAL[r.meal] ? `${MEAL[r.meal].icon} ${MEAL[r.meal].label}` : '';
     $('#d-time').textContent = r.time ? '⏱ ' + r.time : '';
     const fav = $('#d-fav');
     fav.textContent = r.favorite ? '★' : '☆';
@@ -309,40 +341,55 @@
       : '<div class="empty-text">Sin texto. Pulsa Editar para pegar los ingredientes.</div>';
     $('#view-detail').dataset.id = r.id;
 
-    const pending = r.difficulty === 'pendiente';
+    const pending = needsClassify(r);
     $('#d-classify').hidden = !pending;
     if (pending) {
-      const left = recipes.filter((x) => x.difficulty === 'pendiente').length;
-      $('#c-left').textContent = left === 1 ? 'Queda 1 por clasificar' : `Quedan ${left} por clasificar`;
+      const left = recipes.filter(needsClassify).length;
+      $('#c-left').textContent = left === 1 ? 'Queda 1' : `Quedan ${left}`;
       $('#c-title').value = r.title === UNNAMED ? '' : r.title;
+      paintClassify(r);
     }
+  }
+
+  function paintClassify(r) {
+    $$('#c-meal [data-meal]').forEach((b) => b.classList.toggle('selected', b.dataset.meal === r.meal));
+    $$('#c-diff [data-diff]').forEach((b) => b.classList.toggle('selected', b.dataset.diff === r.difficulty));
   }
 
   // Siguiente receta sin clasificar (en el orden de la lista), sin contar la actual.
   function nextPending(currentId) {
-    const list = recipes.filter((x) => x.difficulty === 'pendiente')
+    const list = recipes.filter(needsClassify)
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     const i = list.findIndex((x) => x.id === currentId);
     const rest = list.slice(i + 1).concat(list.slice(0, Math.max(i, 0)));
     return rest.find((x) => x.id !== currentId) || null;
   }
 
-  async function classify(diff) {
+  // Se elige el momento (comida/cena/ambas) y la dificultad; con las dos, pasa a la siguiente.
+  let advanceTimer;
+  async function classify(field, value) {
     const id = $('#view-detail').dataset.id;
     const r = recipes.find((x) => x.id === id);
     if (!r) return;
     const name = $('#c-title').value.trim();
     if (name) r.title = name;
-    if (diff) { r.difficulty = diff; r.updatedAt = Date.now(); }
-    if (diff || name) await saveRecipes();
-    const next = nextPending(id);
-    if (next) {
-      if (diff) toast(`Guardada como ${DIFF[diff].label}`);
-      location.replace('#/r/' + next.id);
-    } else {
-      toast(diff ? '¡Todas clasificadas!' : 'No hay más sin clasificar');
-      if (diff) { filter = 'all'; location.replace('#/'); }
-    }
+    if (field === 'meal') r.meal = value;
+    if (field === 'diff') r.difficulty = value;
+    if (field) r.updatedAt = Date.now();
+    if (field || name) await saveRecipes();
+    paintClassify(r);
+    if (field && needsClassify(r)) return; // falta la otra mitad
+    clearTimeout(advanceTimer);
+    advanceTimer = setTimeout(() => {
+      const next = nextPending(id);
+      if (next) {
+        if (field) toast(`Guardada: ${MEAL[r.meal].label} · ${DIFF[r.difficulty].label}`);
+        location.replace('#/r/' + next.id);
+      } else {
+        toast(field ? '¡Todas clasificadas!' : 'No hay más sin clasificar');
+        if (field) { filter = 'all'; location.replace('#/'); }
+      }
+    }, field ? 350 : 0);
   }
 
   /* ---------- Formulario ---------- */
@@ -358,8 +405,10 @@
     $('#f-time').value = r ? (r.time || '') : '';
     $('#f-text').value = r ? (r.text || '') : (pre?.text || '');
     if (!r && pre?.text && !pre?.title) $('#f-title').value = guessTitle(pre.text);
-    const diff = r ? r.difficulty : 'facil';
+    const diff = r ? r.difficulty : 'facil'; // 'pendiente' deja las tres sin marcar
     $$('input[name=diff]').forEach((i) => { i.checked = i.value === diff; });
+    const ml = r ? r.meal : '';
+    $$('input[name=meal]').forEach((i) => { i.checked = i.value === ml; });
     setPhoto(r ? r.photo || null : null);
     updateUrlPreview();
   }
@@ -419,6 +468,7 @@
       title,
       url: video ? video.url : '',
       difficulty: ($$('input[name=diff]').find((i) => i.checked) || {}).value || 'pendiente',
+      meal: ($$('input[name=meal]').find((i) => i.checked) || {}).value || '',
       time: $('#f-time').value.trim(),
       text,
       photo: formPhoto,
@@ -531,6 +581,7 @@
         title,
         url,
         difficulty: DIFF[diff] ? diff : 'pendiente',
+        meal: normMeal(r.meal || r.momento || r.tipo_comida),
         time: String(r.time || r.tiempo || ''),
         text: String(r.text || r.caption || r.texto || ''),
         photo: typeof r.photo === 'string' && r.photo.startsWith('data:image/') ? r.photo : null,
@@ -677,8 +728,18 @@
     $('#s-export').addEventListener('click', exportData);
     $('#s-links-btn').addEventListener('click', onImportLinks);
     $('#d-classify').addEventListener('click', (e) => {
-      const b = e.target.closest('[data-classify]');
-      if (b) classify(b.dataset.classify || null);
+      const b = e.target.closest('[data-meal], [data-diff], [data-skip]');
+      if (!b) return;
+      if (b.dataset.meal) classify('meal', b.dataset.meal);
+      else if (b.dataset.diff) classify('diff', b.dataset.diff);
+      else classify(null);
+    });
+    $('#meals').addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      meal = chip.dataset.meal;
+      if (filter === 'pendiente') filter = 'all';
+      renderList();
     });
     $('#s-import').addEventListener('change', (e) => {
       const f = e.target.files && e.target.files[0];

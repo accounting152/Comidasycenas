@@ -1,6 +1,6 @@
 # Comidas y Cenas
 
-Web personal para guardar recetas de vídeos de Instagram en el iPhone, ordenadas por dificultad (fácil, medio, difícil).
+Web personal para guardar recetas de vídeos de Instagram en el iPhone, clasificadas como comida, cena o ambas, y por dificultad (fácil, medio, difícil).
 
 - Pega el enlace del reel o post y se ve el vídeo dentro de la receta.
 - Pega el texto del post con los ingredientes y los pasos; mientras cocinas puedes tachar líneas.

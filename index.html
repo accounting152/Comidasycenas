@@ -13,7 +13,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
   <!-- LISTA -->
@@ -28,6 +28,12 @@
     <div class="search-wrap">
       <input id="search" type="search" placeholder="Buscar receta o ingrediente…" autocomplete="off" enterkeyhint="search">
     </div>
+
+    <nav class="chips meals" id="meals" aria-label="Filtrar por comida o cena">
+      <button class="chip active" data-meal="all">Todo <span class="count" data-mcount="all"></span></button>
+      <button class="chip" data-meal="comida">☀️ Comidas <span class="count" data-mcount="comida"></span></button>
+      <button class="chip" data-meal="cena">🌙 Cenas <span class="count" data-mcount="cena"></span></button>
+    </nav>
 
     <nav class="chips" id="filters" aria-label="Filtrar por dificultad">
       <button class="chip active" data-filter="all">Todas <span class="count" data-count="all"></span></button>
@@ -65,18 +71,26 @@
     </header>
     <div class="detail">
       <div class="meta-row">
+        <span id="d-meal" class="badge" hidden></span>
         <span id="d-diff" class="badge"></span>
         <span id="d-time" class="muted"></span>
       </div>
       <div id="d-classify" class="classify" hidden>
-        <div class="classify-head"><b>¿Qué dificultad tiene?</b> <span id="c-left" class="muted"></span></div>
+        <div class="classify-head"><b>Clasifica esta receta</b> <span id="c-left" class="muted"></span></div>
         <input id="c-title" type="text" placeholder="Nombre de la receta (opcional)" autocomplete="off" enterkeyhint="done">
-        <div class="classify-btns">
-          <button class="btn btn-secondary" data-classify="facil"><span class="dot facil"></span>Fácil</button>
-          <button class="btn btn-secondary" data-classify="medio"><span class="dot medio"></span>Medio</button>
-          <button class="btn btn-secondary" data-classify="dificil"><span class="dot dificil"></span>Difícil</button>
+        <div class="classify-label">1. ¿Para cuándo?</div>
+        <div class="classify-btns" id="c-meal">
+          <button class="btn btn-secondary" data-meal="comida">☀️ Comida</button>
+          <button class="btn btn-secondary" data-meal="cena">🌙 Cena</button>
+          <button class="btn btn-secondary" data-meal="ambas">Ambas</button>
         </div>
-        <button class="btn btn-ghost full" data-classify="">Saltar por ahora →</button>
+        <div class="classify-label">2. ¿Qué dificultad?</div>
+        <div class="classify-btns" id="c-diff">
+          <button class="btn btn-secondary" data-diff="facil"><span class="dot facil"></span>Fácil</button>
+          <button class="btn btn-secondary" data-diff="medio"><span class="dot medio"></span>Medio</button>
+          <button class="btn btn-secondary" data-diff="dificil"><span class="dot dificil"></span>Difícil</button>
+        </div>
+        <button class="btn btn-ghost full" data-skip="1">Saltar por ahora →</button>
       </div>
       <div id="d-video" class="video"></div>
       <a id="d-open" class="btn btn-primary full">Abrir en Instagram</a>
@@ -117,6 +131,15 @@
         <span>Nombre de la receta</span>
         <input id="f-title" type="text" placeholder="Ej.: Pollo al curry" required autocomplete="off">
       </label>
+
+      <fieldset class="field">
+        <legend>¿Para cuándo?</legend>
+        <div class="segmented" role="radiogroup">
+          <label><input type="radio" name="meal" value="comida"><span>☀️ Comida</span></label>
+          <label><input type="radio" name="meal" value="cena"><span>🌙 Cena</span></label>
+          <label><input type="radio" name="meal" value="ambas"><span>Ambas</span></label>
+        </div>
+      </fieldset>
 
       <fieldset class="field">
         <legend>Dificultad</legend>
@@ -203,6 +226,6 @@
 
   <div id="toast" class="toast" role="status" hidden></div>
 
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

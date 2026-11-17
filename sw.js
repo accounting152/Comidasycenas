@@ -1,6 +1,6 @@
 /* Guarda la web en caché para que abra rápido y sin conexión. */
-const CACHE = 'comidas-v5';
-const ASSETS = ['./', 'index.html', 'styles.css?v=5', 'app.js?v=5', 'manifest.webmanifest',
+const CACHE = 'comidas-v6';
+const ASSETS = ['./', 'index.html', 'styles.css?v=6', 'app.js?v=6', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
