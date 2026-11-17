@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Comidas y Cenas</title>
+  <meta name="description" content="Mis recetas de Instagram, ordenadas por dificultad.">
+  <meta name="theme-color" content="#c2410c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Comidas">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- LISTA -->
+  <section id="view-list" class="view">
+    <header class="topbar">
+      <h1>Comidas y Cenas</h1>
+      <button class="icon-btn" id="btn-settings" aria-label="Ajustes">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Zm7.43-2.53c.04-.32.07-.64.07-.97s-.03-.66-.07-1l2.11-1.63a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.3 7.3 0 0 0-1.69-.98l-.38-2.65A.49.49 0 0 0 14 2h-4a.49.49 0 0 0-.49.42l-.38 2.65c-.61.25-1.17.58-1.69.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46a.5.5 0 0 0 .12.64L4.57 11c-.04.34-.07.67-.07 1s.03.65.07.97l-2.11 1.66a.5.5 0 0 0-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.58 1.69-.98l2.49 1.01c.22.08.49 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64l-2.11-1.66Z"/></svg>
+      </button>
+    </header>
+
+    <div class="search-wrap">
+      <input id="search" type="search" placeholder="Buscar receta o ingrediente…" autocomplete="off" enterkeyhint="search">
+    </div>
+
+    <nav class="chips" id="filters" aria-label="Filtrar por dificultad">
+      <button class="chip active" data-filter="all">Todas <span class="count" data-count="all"></span></button>
+      <button class="chip" data-filter="facil"><span class="dot facil"></span>Fácil <span class="count" data-count="facil"></span></button>
+      <button class="chip" data-filter="medio"><span class="dot medio"></span>Medio <span class="count" data-count="medio"></span></button>
+      <button class="chip" data-filter="dificil"><span class="dot dificil"></span>Difícil <span class="count" data-count="dificil"></span></button>
+      <button class="chip" data-filter="fav">★ Favoritas</button>
+    </nav>
+
+    <main id="list" class="grid" aria-live="polite"></main>
+
+    <div id="empty" class="empty" hidden>
+      <div class="empty-emoji">🍳</div>
+      <h2>Todavía no hay recetas</h2>
+      <p>Copia el enlace de un vídeo en Instagram (<b>Compartir → Copiar enlace</b>) y pulsa <b>+</b> para guardarlo.</p>
+    </div>
+    <div id="noresults" class="empty" hidden>
+      <p>No hay recetas que coincidan.</p>
+    </div>
+
+    <button class="fab" id="btn-add" aria-label="Añadir receta">
+      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path fill="currentColor" d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>
+    </button>
+  </section>
+
+  <!-- DETALLE -->
+  <section id="view-detail" class="view" hidden>
+    <header class="topbar">
+      <button class="icon-btn back" data-back aria-label="Volver">
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>
+      </button>
+      <h1 id="d-title" class="truncate"></h1>
+      <button class="icon-btn" id="d-fav" aria-label="Marcar favorita">☆</button>
+    </header>
+    <div class="detail">
+      <div class="meta-row">
+        <span id="d-diff" class="badge"></span>
+        <span id="d-time" class="muted"></span>
+      </div>
+      <div id="d-video" class="video"></div>
+      <a id="d-open" class="btn btn-secondary full" target="_blank" rel="noopener">Abrir en Instagram</a>
+
+      <h2 class="section-title">Ingredientes y pasos</h2>
+      <p class="hint">Toca una línea para tacharla mientras cocinas.</p>
+      <div id="d-text" class="recipe-text"></div>
+
+      <div class="detail-actions">
+        <button class="btn btn-secondary" id="d-edit">Editar</button>
+        <button class="btn btn-danger" id="d-delete">Borrar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- FORMULARIO -->
+  <section id="view-form" class="view" hidden>
+    <header class="topbar">
+      <button class="icon-btn back" data-back aria-label="Cancelar">
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>
+      </button>
+      <h1 id="f-heading">Nueva receta</h1>
+      <span class="icon-btn" aria-hidden="true"></span>
+    </header>
+    <form id="form" class="form" novalidate>
+      <label class="field">
+        <span>Enlace de Instagram</span>
+        <div class="input-row">
+          <input id="f-url" type="url" inputmode="url" placeholder="https://www.instagram.com/reel/…" autocomplete="off">
+          <button type="button" class="btn btn-small" data-paste="f-url">Pegar</button>
+        </div>
+        <small id="f-url-msg" class="field-msg"></small>
+      </label>
+
+      <div id="f-preview" class="video small" hidden></div>
+
+      <label class="field">
+        <span>Nombre de la receta</span>
+        <input id="f-title" type="text" placeholder="Ej.: Pollo al curry" required autocomplete="off">
+      </label>
+
+      <fieldset class="field">
+        <legend>Dificultad</legend>
+        <div class="segmented" role="radiogroup">
+          <label><input type="radio" name="diff" value="facil" checked><span><i class="dot facil"></i>Fácil</span></label>
+          <label><input type="radio" name="diff" value="medio"><span><i class="dot medio"></i>Medio</span></label>
+          <label><input type="radio" name="diff" value="dificil"><span><i class="dot dificil"></i>Difícil</span></label>
+        </div>
+      </fieldset>
+
+      <label class="field">
+        <span>Tiempo (opcional)</span>
+        <input id="f-time" type="text" placeholder="Ej.: 30 min" autocomplete="off">
+      </label>
+
+      <label class="field">
+        <span>Texto de Instagram (ingredientes y pasos)</span>
+        <textarea id="f-text" rows="10" placeholder="Pega aquí el texto del post…"></textarea>
+        <div class="input-row end">
+          <button type="button" class="btn btn-small" data-paste="f-text">Pegar texto</button>
+        </div>
+      </label>
+
+      <div class="field">
+        <span class="label">Foto de portada (opcional)</span>
+        <div class="photo-row">
+          <div id="f-photo-preview" class="photo-preview"></div>
+          <div class="photo-btns">
+            <label class="btn btn-small">Elegir foto<input id="f-photo" type="file" accept="image/*" hidden></label>
+            <button type="button" class="btn btn-small btn-ghost" id="f-photo-remove" hidden>Quitar</button>
+          </div>
+        </div>
+        <small class="field-msg">Truco: haz una captura del vídeo y elígela aquí.</small>
+      </div>
+
+      <button type="submit" class="btn btn-primary full">Guardar receta</button>
+    </form>
+  </section>
+
+  <!-- AJUSTES -->
+  <section id="view-settings" class="view" hidden>
+    <header class="topbar">
+      <button class="icon-btn back" data-back aria-label="Volver">
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>
+      </button>
+      <h1>Ajustes</h1>
+      <span class="icon-btn" aria-hidden="true"></span>
+    </header>
+    <div class="settings">
+      <div class="card">
+        <h2>Copia de seguridad</h2>
+        <p>Las recetas se guardan solo en este iPhone. Exporta una copia de vez en cuando (por ejemplo, a iCloud Drive) para no perderlas.</p>
+        <button class="btn btn-primary full" id="s-export">Exportar recetas</button>
+        <label class="btn btn-secondary full">Importar copia<input id="s-import" type="file" accept="application/json,.json" hidden></label>
+        <small id="s-msg" class="field-msg"></small>
+      </div>
+      <div class="card">
+        <h2>Instalar en el iPhone</h2>
+        <ol>
+          <li>Abre esta web en <b>Safari</b>.</li>
+          <li>Pulsa <b>Compartir</b> (el cuadrado con la flecha).</li>
+          <li>Elige <b>Añadir a pantalla de inicio</b>.</li>
+        </ol>
+        <p class="muted">Ojo: la app de la pantalla de inicio y Safari guardan las recetas por separado. Usa siempre la misma, o pasa los datos con Exportar/Importar.</p>
+      </div>
+      <div class="card">
+        <h2>Cómo guardar un vídeo</h2>
+        <ol>
+          <li>En Instagram, en el vídeo: <b>Compartir → Copiar enlace</b>.</li>
+          <li>Aquí, pulsa <b>+</b> y luego <b>Pegar</b>.</li>
+          <li>Para el texto: en Instagram mantén pulsado el texto del post y copia, o haz una captura y usa el texto en vivo del iPhone. Luego <b>Pegar texto</b>.</li>
+        </ol>
+      </div>
+      <p class="muted center" id="s-stats"></p>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
