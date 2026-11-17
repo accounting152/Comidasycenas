@@ -31,6 +31,7 @@
 
     <nav class="chips" id="filters" aria-label="Filtrar por dificultad">
       <button class="chip active" data-filter="all">Todas <span class="count" data-count="all"></span></button>
+      <button class="chip" data-filter="pendiente" id="chip-pendiente" hidden><span class="dot pendiente"></span>Sin clasificar <span class="count" data-count="pendiente"></span></button>
       <button class="chip" data-filter="facil"><span class="dot facil"></span>Fácil <span class="count" data-count="facil"></span></button>
       <button class="chip" data-filter="medio"><span class="dot medio"></span>Medio <span class="count" data-count="medio"></span></button>
       <button class="chip" data-filter="dificil"><span class="dot dificil"></span>Difícil <span class="count" data-count="dificil"></span></button>
@@ -67,8 +68,18 @@
         <span id="d-diff" class="badge"></span>
         <span id="d-time" class="muted"></span>
       </div>
+      <div id="d-classify" class="classify" hidden>
+        <div class="classify-head"><b>¿Qué dificultad tiene?</b> <span id="c-left" class="muted"></span></div>
+        <input id="c-title" type="text" placeholder="Nombre de la receta (opcional)" autocomplete="off" enterkeyhint="done">
+        <div class="classify-btns">
+          <button class="btn btn-secondary" data-classify="facil"><span class="dot facil"></span>Fácil</button>
+          <button class="btn btn-secondary" data-classify="medio"><span class="dot medio"></span>Medio</button>
+          <button class="btn btn-secondary" data-classify="dificil"><span class="dot dificil"></span>Difícil</button>
+        </div>
+        <button class="btn btn-ghost full" data-classify="">Saltar por ahora →</button>
+      </div>
       <div id="d-video" class="video"></div>
-      <a id="d-open" class="btn btn-secondary full" target="_blank" rel="noopener">Abrir en Instagram</a>
+      <a id="d-open" class="btn btn-primary full">Abrir en Instagram</a>
 
       <h2 class="section-title">Ingredientes y pasos</h2>
       <p class="hint">Toca una línea para tacharla mientras cocinas.</p>
@@ -159,8 +170,15 @@
         <h2>Copia de seguridad</h2>
         <p>Las recetas se guardan solo en este iPhone. Exporta una copia de vez en cuando (por ejemplo, a iCloud Drive) para no perderlas.</p>
         <button class="btn btn-primary full" id="s-export">Exportar recetas</button>
-        <label class="btn btn-secondary full">Importar copia<input id="s-import" type="file" accept="application/json,.json" hidden></label>
+        <label class="btn btn-secondary full">Importar copia<input id="s-import" type="file" accept="application/json,.json,text/plain,.txt" hidden></label>
         <small id="s-msg" class="field-msg"></small>
+      </div>
+      <div class="card">
+        <h2>Añadir muchos reels de golpe</h2>
+        <p>Pega aquí una lista de enlaces de Instagram (uno por línea). Se guardan como <b>Sin clasificar</b> y luego, desde cada receta, eliges Fácil, Medio o Difícil y pasas a la siguiente.</p>
+        <textarea id="s-links" rows="5" placeholder="https://www.instagram.com/reel/…&#10;https://www.instagram.com/reel/…"></textarea>
+        <button class="btn btn-primary full" id="s-links-btn">Añadir enlaces</button>
+        <small id="s-links-msg" class="field-msg"></small>
       </div>
       <div class="card">
         <h2>Instalar en el iPhone</h2>

@@ -5,6 +5,8 @@ Web personal para guardar recetas de vídeos de Instagram en el iPhone, ordenada
 - Pega el enlace del reel o post y se ve el vídeo dentro de la receta.
 - Pega el texto del post con los ingredientes y los pasos; mientras cocinas puedes tachar líneas.
 - Busca por nombre o ingrediente, filtra por dificultad y marca favoritas.
+- Puedes importar una lista de reels (enlaces pegados, o un JSON con `url`, `titulo`, `caption` y `dificultad`). Entran como **Sin clasificar** y desde cada una eliges Fácil, Medio o Difícil y pasas a la siguiente.
+- La web trae ya las recetas de `data/recetas.json`: al abrirla, las que no tengas se añaden como **Sin clasificar**. Para añadir más, amplía ese archivo; tu clasificación no se pisa y las que borres no vuelven.
 - Las recetas se guardan en el propio móvil. En Ajustes puedes exportar e importar una copia.
 
 ## Publicar con GitHub Pages
