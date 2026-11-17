@@ -7,6 +7,7 @@
     medio: { label: 'Medio', emoji: '🍝' },
     dificil: { label: 'Difícil', emoji: '🥘' },
   };
+  const IG_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.3" cy="6.7" r="1.3" fill="currentColor"/></svg>';
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
@@ -231,13 +232,15 @@
     $('#list').innerHTML = items.map((r) => {
       const d = DIFF[r.difficulty] || DIFF.facil;
       const bg = r.photo ? ` style="background-image:url('${r.photo}')"` : '';
-      return `<button class="card-recipe" data-id="${esc(r.id)}">
-        <div class="thumb"${bg}>${r.photo ? '' : d.emoji}${r.favorite ? '<span class="fav">★</span>' : ''}</div>
+      const ig = r.url && /instagram\.com/i.test(r.url)
+        ? `<a class="ig-open" href="${esc(r.url)}" aria-label="Abrir en Instagram">${IG_ICON}</a>` : '';
+      return `<article class="card-recipe" data-id="${esc(r.id)}" role="button" tabindex="0">
+        <div class="thumb"${bg}>${r.photo ? '' : d.emoji}${r.favorite ? '<span class="fav">★</span>' : ''}${ig}</div>
         <div class="card-body">
           <div class="card-title">${esc(r.title)}</div>
           <div class="card-meta"><span class="dot ${r.difficulty}"></span>${d.label}${r.time ? ' · ' + esc(r.time) : ''}</div>
         </div>
-      </button>`;
+      </article>`;
     }).join('');
   }
 
@@ -459,6 +462,7 @@
       renderList();
     });
     $('#list').addEventListener('click', (e) => {
+      if (e.target.closest('a')) return; // el icono de Instagram abre la app
       const card = e.target.closest('.card-recipe');
       if (card) go('#/r/' + card.dataset.id);
     });
